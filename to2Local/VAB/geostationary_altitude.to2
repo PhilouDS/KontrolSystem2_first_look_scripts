@@ -1,0 +1,58 @@
+use { CONSOLE } from ksp::console
+use { find_body } from ksp::orbit
+use { PI } from core::math
+use { format } from core::str
+
+
+pub fn main_editor () -> Unit = {
+  CONSOLE.clear()
+
+//__________________________________________
+  const bod = find_body("Kerbin").value
+  const phase = 2.0/3 //-> to install 3 satellites
+//‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+  
+  const mu = bod.grav_parameter
+  const rot_period = bod.rotation_period
+  const R = bod.radius
+
+  // geostationary altitude from body's center of mass
+  const geo = ((mu * rot_period**2) / (4 * PI**2))**(1.0/3)
+  // geostationary altitude above sea level
+  const geo_sealevel = geo - R
+
+  // ship's velocity in a circular orbit at geostationary altitude
+  const geo_velocity = (2 * PI * geo) / rot_period
+
+  // phase orbit to create a comm network
+  const geo_phase_period = phase * rot_period
+  const SMA = mu**(1.0/3) * (geo_phase_period / (2 * PI))**(2.0/3) //-> Semi Major Axis
+  const geo_phase_periapsis = 2 * SMA - geo
+
+  // PRINT
+
+  const msg = "GEOSTATIONARY ALTITUDE"
+  
+  CONSOLE.print_line(msg)
+  for (i in 0..msg.length - 1) {CONSOLE.print("‾")}
+  CONSOLE.print_line("‾")
+
+  const start_row=2
+
+  CONSOLE.print_at(start_row + 0,0,"BODY: " + bod.name)
+
+  if (geo > bod.SOI_radius) {
+    CONSOLE.print_at(start_row + 2, 0, "Geostationary orbit is impossible (out of SOI)")
+  }
+  else {
+    CONSOLE.print_at(start_row + 2, 0, "Geostationary altitude above sea level:")
+    CONSOLE.print_at(start_row + 3, 4, format("{0:N2} m", geo_sealevel))
+
+    CONSOLE.print_at(start_row + 5, 0, "Geostationary velocity:")
+    CONSOLE.print_at(start_row + 6, 4, format("{0:N2} m/s", geo_velocity))
+
+    CONSOLE.print_at(start_row + 8, 0, "Geostationary phase orbit:")
+    CONSOLE.print_at(start_row + 9, 4, format("   Period: {0:N2} m", geo_phase_period))
+    CONSOLE.print_at(start_row + 10, 4, format("Periapsis: {0:N2} m", geo_phase_periapsis))
+  }
+}

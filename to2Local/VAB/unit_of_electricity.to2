@@ -1,0 +1,52 @@
+use { CONSOLE } from ksp::console
+use { find_body } from ksp::orbit
+use { sqrt, asin, floor } from core::math
+use { format } from core::str
+
+// https://wiki.kerbalspaceprogram.com/wiki/Orbit_darkness_time
+
+pub fn main_editor () -> Unit = {
+  CONSOLE.clear()
+  
+//__________________________________________
+  const bod = find_body("Kerbin").value
+  const Pe = 150000
+  const Ap = 150000
+  //-> Electricity Unit to write manually for each part consuming electricity:
+  const unit_per_second = 0.250 + 0.004 + 2.25 + 0.433
+//‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+
+  
+  const msg = "ELECTRICITY CONSUMPTION" 
+  CONSOLE.print_line(msg)
+  for (i in 0..msg.length - 1) {CONSOLE.print("‾")}
+  CONSOLE.print_line("‾")
+  
+  const start_row=2
+
+  CONSOLE.print_at(start_row,0,"BODY: " + bod.name)
+  CONSOLE.print_at(start_row+2,0,format("{0,-13} {1,-13}", ("APOAPSIS:", "PERIAPSIS:")))
+  CONSOLE.print_at(start_row+3,0,format("{0,-13:N0} {1,-13:N0}", (Ap, Pe)))
+
+  const R = bod.radius
+  const Mu = bod.grav_parameter
+  const r_p = R + Pe
+  const r_a = R + Ap
+  const a = (r_a + r_p)/2 // semi-major axis
+  const b = sqrt(r_a * r_p) // semi minor axis
+  const e = (r_a - r_p)/(r_a + r_p) // eccentricity
+  const l = (2 * r_a * r_p) / (r_a + r_p) // the semi-latus rectum of the orbital ellipse
+  const h = sqrt(l * Mu) // specific angular momentum
+
+  const T_obs = (2/h)*(a*b) * (asin(R / b) + e * R / b)
+
+  const T_obs_min = floor(T_obs / 60)
+  const T_obs_sec = T_obs % 60
+
+  CONSOLE.print_at(start_row+5,0,format("Time in shadow: {0:N0}'{1:N1}''", (T_obs_min, T_obs_sec)))
+
+  const unit_needed = T_obs * unit_per_second
+  
+  CONSOLE.print_at(start_row+7,0,format("MAX CONSUMPTION per second: {0:N2} U/s", (unit_per_second)))
+  CONSOLE.print_at(start_row+8,0,format("MAX UNITS needed in shadow: {0:N2} x {1:N2} = {2:N2} U", (unit_per_second, T_obs, unit_needed)))
+}
