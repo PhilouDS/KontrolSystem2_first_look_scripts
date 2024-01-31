@@ -1,0 +1,19 @@
+use { Vessel, AutopilotMode } from ksp::vessel
+use { CONSOLE } from ksp::console
+use { sleep, wait_until, yield, current_time } from ksp::game
+use { Orbit } from ksp::orbit
+use { goToFrom, exeMnv } from lib::mnv
+
+pub fn main_flight (ship: Vessel) -> Unit = {
+  CONSOLE.clear()
+
+  ship.autopilot.enabled = false // SAS off
+  ship.autopilot.mode = AutopilotMode.Autopilot
+
+  const APO = ship.orbit.apoapsis.value
+  const APO_ETA = ship.orbit.next_apoapsis_time().value
+
+  goToFrom(ship, APO, "AP")
+  sleep(1)
+  exeMnv(ship)
+}

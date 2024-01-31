@@ -1,0 +1,118 @@
+use { Vessel, AutopilotMode } from ksp::vessel
+use { Orbit, Body } from ksp::orbit
+use { CONSOLE } from ksp::console
+use { sqrt, max, min, abs } from core::math
+use { vec3, GlobalVelocity } from ksp::math
+use { current_time, wait_until, sleep, yield } from ksp::game
+use { warp_to } from ksp::game::warp
+use { format } from core::str
+
+
+// EXECUTE MNV
+
+pub fn exeMnv (craft: Vessel) -> Unit = {
+  const nextNode = craft.maneuver.next_node().value
+
+  craft.autopilot.target_orientation = nextNode.burn_vector
+  sleep(0.1)
+
+  const burn_duration = nextNode.burn_duration
+
+  CONSOLE.print_line(format("Burn duration: {0:N2} s ", (burn_duration)))
+
+  warp_to(nextNode.time - burn_duration / 2 - 20) // 20s margin security
+
+  while (nextNode.ETA > burn_duration/2) {
+    CONSOLE.print_at(7,0, format("Maneuver in: {0:N2} s   ",
+      (nextNode.ETA - burn_duration/2)))
+    yield()
+  }
+
+  let throt = 0.0
+  let isDone = false
+  craft.set_throttle(throt)
+  CONSOLE.clear_line(7)
+
+  const expectedVel = craft.orbit.orbital_velocity(nextNode.time).magnitude + 
+    nextNode.global_burn_vector.vector.magnitude
+
+  while (isDone == false) {
+    craft.autopilot.target_orientation = nextNode.burn_vector
+    const dV = abs(expectedVel - craft.orbit.orbital_velocity(current_time()).magnitude)
+    const max_acc = craft.available_thrust / craft.mass
+    throt = min(dV / max_acc, 1)
+    craft.set_throttle(throt)
+    if (dV < 0.05) {
+      isDone = true
+    }
+
+    CONSOLE.print_at(7,0, format("remaining dV: {0:N2} m/s  ", dV))
+    yield()
+  }
+  craft.set_throttle(0)
+  sleep(0.1)
+  nextNode.remove()
+  craft.autopilot.enabled = true // SAS on
+  craft.autopilot.mode = AutopilotMode.StabilityAssist
+  CONSOLE.print_at(9,0, "Maneuver Done")
+}
+
+// ORBITAL VELOCITY
+
+pub fn computeVelocity(craft: Vessel, peri: float, apo: float, craftAlt: float) -> float = {  
+  let rad = craft.main_body.radius
+  let RV = rad + craftAlt // ship's altitude from Kerbin's center of mass
+  let RP = rad + peri // ship's periapsis from Kerbin's center of mass
+  let RA = rad + apo // ship's apoapsis from Kerbin's center of mass
+  let mu = craft.main_body.grav_parameter
+  let SMA = (RA + RP) / 2 // Semi-Major Axis
+
+  return sqrt(mu * (2/RV - 1/SMA)) // sqrt = SQuare RooT
+}
+
+
+// HOHMANN TRANSFER 
+
+pub fn hTrans (craft: Vessel, craftAlt: float, targetAlt: float) -> float = {
+  CONSOLE.clear()
+  let initVel = 0.0
+  let finalVel = 0.0
+  let deltaVneeded = 0.0
+
+  initVel = computeVelocity(craft, craft.orbit.periapsis, craft.orbit.apoapsis.value, craftAlt)
+
+  if (craftAlt < targetAlt) {
+    finalVel = computeVelocity(craft, craftAlt, targetAlt, craftAlt)
+  } 
+  else {
+    finalVel = computeVelocity(craft, targetAlt, craftAlt, craftAlt)
+  }
+
+  deltaVneeded = finalVel - initVel
+
+  CONSOLE.print_line("--> Maneuver")
+  CONSOLE.print_line ("  initV = " + initVel.to_fixed(2) + " m/s.")
+  CONSOLE.print_line (" finalV = " + finalVel.to_fixed(2) + " m/s.")
+  CONSOLE.print_line ("Delta-V = " + deltaVneeded.to_fixed(2) + " m/s.")
+  CONSOLE.print_line("‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾")
+  
+  deltaVneeded
+}
+
+// GO TO FROM
+
+pub fn goToFrom (craft: Vessel, goTo: float, goFrom: string = "AP") -> Unit = {
+  let craftFrom = 0.0  
+  let nodeTime = 0.0
+
+  if (goFrom == "AP") {
+    craftFrom = craft.orbit.apoapsis.value
+    nodeTime = craft.orbit.next_apoapsis_time().value
+  }
+  else {
+    craftFrom = craft.orbit.periapsis
+    nodeTime = craft.orbit.next_periapsis_time()
+  }
+  let deltaVneeded = hTrans(craft, craftFrom, goTo)
+  craft.maneuver.add (nodeTime, 0, 0, deltaVneeded)
+}

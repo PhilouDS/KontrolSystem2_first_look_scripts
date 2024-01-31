@@ -1,0 +1,55 @@
+use { Vessel, ModuleScienceExperiment } from ksp::vessel
+use { CONSOLE } from ksp::console
+use { sleep, wait_until, yield, current_time } from ksp::game
+use { format } from core::str
+use { Experiment } from ksp::science
+
+pub fn main_flight (ship: Vessel) -> Unit = {
+  CONSOLE.clear()
+
+  printScience(ship)
+}
+
+fn printScience (craft: Vessel) -> Unit = {
+  CONSOLE.clear()
+  let expList: Experiment[] = []
+
+  for (PRT in craft.parts) {
+    if (PRT.is_science_experiment) {
+      CONSOLE.print_line (PRT.part_name)
+      expList = PRT.science_experiment.value.experiments
+
+      for (exp in expList) {
+        CONSOLE.print_line("*** " + exp.definition.id + " ***")
+        CONSOLE.print_line("-------------------------------  ")
+        CONSOLE.print_line(format("  --> Time to complete      : {0:N2}",
+          exp.time_to_complete))
+
+        CONSOLE.print_line(format("  --> Sample value          : {0:N2}",
+          exp.definition.sample_value))
+
+        CONSOLE.print_line(format("  --> Data value            : {0:N2}",
+          exp.definition.data_value))
+
+        CONSOLE.print_line(format("  --> Transmission size     : {0:N2}",
+          exp.definition.transmission_size))
+
+        CONSOLE.print_line(format("  --> Situation valid?      : {0}",
+          exp.current_situation_is_valid))
+
+        CONSOLE.print_line(format("  --> Current state         : {0}",
+          exp.current_experiment_state))
+
+        CONSOLE.print_line(format("  --> Nbr of Valid Locations: {0:N0}",
+          exp.valid_locations.length))
+
+        for (loc in exp.valid_locations) {
+          CONSOLE.print("- " + loc.science_situation.to_string() + " ")
+        }
+        CONSOLE.print_line(" ")
+        CONSOLE.print_line("-------------------------------  ")
+      }
+    }
+  }
+  expList = []
+}

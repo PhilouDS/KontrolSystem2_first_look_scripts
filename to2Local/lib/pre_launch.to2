@@ -1,0 +1,18 @@
+use { Vessel } from ksp::vessel
+use { CONSOLE } from ksp::console
+use { sleep } from ksp::game
+
+pub fn countdown (craft: Vessel, ignition_before_clamps: bool, delay: int = 3) -> Unit = {
+  craft.set_throttle(1)
+  for (i in 0..delay) {
+    CONSOLE.print_line((delay - i).to_string())
+    if (delay - i == 1 && ignition_before_clamps == true) {
+      craft.staging.next()
+      CONSOLE.print_line("Ignition")
+    }
+    sleep(1)
+  }
+  CONSOLE.print_line(0.to_string())
+  craft.staging.next()
+  CONSOLE.print_line("Liftoff!")
+}

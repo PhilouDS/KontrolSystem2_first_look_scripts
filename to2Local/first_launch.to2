@@ -1,0 +1,63 @@
+use { Vessel, AutopilotMode, DeltaVSituation } from ksp::vessel
+use { CONSOLE } from ksp::console
+use { sleep, wait_until, yield, current_time } from ksp::game
+use { Orbit } from ksp::orbit
+use { countdown } from lib::pre_launch
+
+pub fn main_flight (ship: Vessel, pitchAng: float = 85, pitchVel: float = 50.0, fromNorth: float = 90) -> Unit = {
+  CONSOLE.clear()
+
+  ship.autopilot.enabled = false // SAS on
+  ship.autopilot.mode = AutopilotMode.Autopilot
+
+  countdown(ship, true, 3)
+
+  wait_until(fn() -> ship.vertical_surface_speed > pitchVel)
+
+  CONSOLE.clear()
+  CONSOLE.print_line("Starting GT.")
+
+  ship.autopilot.target_orientation = ship.heading_direction(fromNorth, pitchAng, 0).vector
+
+  wait_until (fn() -> ship.facing.vector.angle_to(ship.heading_direction(fromNorth, pitchAng, 0).vector) < 1)
+  wait_until (fn() -> ship.facing.vector.angle_to(ship.surface_velocity) < 1)
+  
+  let progPitch = 90 - ship.up.angle_to(ship.surface_velocity)
+
+  let oldThrust = ship.delta_v.stages[0].get_thrust(DeltaVSituation.Altitude)
+  
+  while (ship.altitude_sealevel < 36000) {
+    if (ship.delta_v.stages[0].get_thrust(DeltaVSituation.Altitude) < (oldThrust - 10)) {
+      wait_until (fn() -> ship.staging.ready)
+      ship.staging.next()
+      oldThrust = ship.delta_v.stages[0].get_thrust(DeltaVSituation.Altitude)
+    }
+    progPitch = 90 - ship.up.angle_to(ship.surface_velocity)
+    ship.autopilot.target_orientation = ship.heading_direction(fromNorth, progPitch, 0).vector
+    yield()
+  }
+
+  while (ship.orbit.apoapsis.value < 100000) {
+    if (ship.delta_v.stages[0].get_thrust(DeltaVSituation.Altitude) < (oldThrust - 10)) {
+      wait_until (fn() -> ship.staging.ready)
+      ship.staging.next()
+      oldThrust = ship.delta_v.stages[0].get_thrust(DeltaVSituation.Altitude)
+    }
+    progPitch = 90 - ship.up.angle_to(ship.orbit.prograde(current_time()))
+    ship.autopilot.target_orientation = ship.heading_direction(fromNorth, progPitch, 0).vector
+    yield()
+  }
+  
+  yield()
+  ship.set_throttle(0)
+  yield()
+  CONSOLE.print_line("End of GT")
+  sleep(1)
+
+  wait_until (fn() -> ship.altitude_sealevel > 71000)
+  yield()
+  CONSOLE.clear()
+  CONSOLE.print_line("In Space")
+
+
+}
