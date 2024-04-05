@@ -1,0 +1,135 @@
+// KONTROL SYSTEM 2 - v0.5.5.5
+//____________________________________________________
+// CORE LIBRARIES
+//‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+use { floor } from core::math
+use { format } from core::str
+
+//____________________________________________________
+// KSP LIBRARIES
+//‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+use { CONSOLE, RgbaColor, color } from ksp::console
+use { screen_size, open_window, Align } from ksp::ui
+use { yield, current_time } from ksp::game
+use { vec2, Vec2 } from ksp::math
+use { warp_to } from ksp::game::warp
+
+//____________________________________________________
+// GLOBAL CONSTANTS
+//‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+
+use * from lib::my_constants
+
+const window_width: float = myScreen.x/5
+const window_height: float = 50.0
+
+
+//____________________________________________________
+// MAIN FUNCTION
+//‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+
+pub fn main_editor () -> Unit = {
+  CONSOLE.clear()
+
+  create_window()
+}
+
+
+fn create_window() -> Unit = {
+  const main_window = open_window("<b>CURRENT TIME</b>",
+    (myScreen.x-1.25*window_width),
+    myScreen.y - 40,
+    window_width,
+    window_height)
+
+  let (now, print_now) = time_to_string()
+  const now_time: Cell<float> = Cell(now)
+  const print_time: Cell<string> = Cell(print_now)
+
+  const main_box = main_window.add_vertical(10.0, Align.Stretch)
+  const detail_box = main_window.add_horizontal(10.0, Align.Center)
+  
+  const toggle_box = main_window.add_vertical(10.0, Align.Stretch)
+  
+  const warp_box = main_window.add_vertical(10.0, Align.Stretch)
+
+  const now_time_label = main_box.add_label("", Align.Stretch)
+  now_time_label.bind(now_time, "Current time: {0:N2} s")
+  now_time_label.font_size = text_font_size
+
+  const print_time_label = detail_box.add_label("", Align.Center)
+  print_time_label.bind(print_time)
+  print_time_label.font_size = text_font_size
+  
+  const toggle_sec = toggle_box.add_toggle("WARP to Current time + DeltaT", Align.Start)
+  toggle_sec.value = true
+  toggle_sec.font_size = text_font_size
+  const toggle_UT = toggle_box.add_toggle("WARP to new UT", Align.Start)
+  toggle_UT.value = false
+  toggle_UT.font_size = text_font_size
+
+
+  const warp_input_box = warp_box.add_horizontal(10.0, Align.Stretch, 10.0)
+  const warp_label = warp_input_box.add_label("Warp (deltaT in sec):", Align.Start)
+  warp_label.font_size = text_font_size
+  const warp_value = warp_input_box.add_float_input(Align.Start, 10.0)
+  warp_value.value = 0
+
+  const warp_button = warp_box.add_button("WARP", Align.Center)
+  warp_button.on_click(fn() -> {
+    const t0 = current_time()
+    const deltaT = warp_value.value
+    if (toggle_sec.value) {
+      warp_to(t0 + deltaT)
+    }
+    else {
+      warp_to(deltaT)
+    }
+  })
+
+  toggle_sec.on_change(fn(b) -> {
+    if (toggle_sec.value) {
+      toggle_UT.value = false
+      warp_label.text = "Warp (deltaT in sec)"
+    }
+    CONSOLE.clear()
+  })
+
+  toggle_UT.on_change(fn(b) -> {
+    if (toggle_UT.value) {
+      toggle_sec.value = false
+      warp_label.text = "Warp (UT in sec)"
+    }
+    CONSOLE.clear()
+  })
+
+  
+
+  while(!main_window.is_closed) {
+    (now, print_now) = time_to_string()
+    print_time.value = print_now
+    now_time.value = now
+
+    toggle_sec.enabled = !toggle_sec.value
+    toggle_UT.enabled = !toggle_UT.value
+
+    yield()
+  }
+}
+
+sync fn time_to_string() -> (now: float, print_now: string) = {
+  const nTime = current_time()
+  const nDay = floor(nTime / (hours_per_day*3600)).to_int
+  const nHours = floor((nTime - nDay*(hours_per_day*3600)) / 3600)
+  let nHours_label = nHours.to_int.to_string()
+  if (nHours < 10) {nHours_label = "0" + nHours.to_int.to_string()}
+  const nMin = floor((nTime - nDay*(hours_per_day*3600) - nHours*3600) / 60)
+  let nMin_label = nMin.to_int.to_string()
+  if (nMin < 10) {nMin_label = "0" + nMin.to_int.to_string()}
+  const nSec = floor(nTime - nDay*(hours_per_day*3600) - nHours*3600 - nMin*60)
+  let nSec_label = nSec.to_string()
+  if (nSec < 10) {nSec_label = "0" + nSec.to_int.to_string()}
+  const p_time = format("{0:N0} d {1} h {2} min {3} sec", (nDay+1, nHours_label, nMin_label, nSec_label))
+
+  (now: nTime, print_now: p_time)
+}
